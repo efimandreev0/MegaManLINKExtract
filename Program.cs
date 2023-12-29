@@ -11,7 +11,14 @@ namespace MegaManLINK
     {
         static void Main(string[] args)
         {
-            Extract("2.link");
+            if (args[0].Contains(".link") || args[0].Contains(".LINK"))
+            {
+                Extract(args[0]);
+            }
+            else
+            {
+                Rebuild(args[0], args[1]);
+            }
         }
         public static void Extract(string arc)
         {
@@ -39,40 +46,32 @@ namespace MegaManLINK
 
             
         }
-        public static int ReadUpToTwelveNulls(BinaryReader binaryReader)
+        public static void Rebuild(string input, string archive)
         {
-            int nullBytesCount = 0;
-            int totalBytesRead = 0;
-
-            while (true)
+            string[] files = Directory.GetFiles(input);
+            int[] pointers = new int[files.Length];
+            int[] size = new int[files.Length];
+            using (BinaryReader reader = new BinaryReader(File.OpenRead(archive)))
+            using (BinaryWriter writer = new BinaryWriter(File.OpenWrite(archive)))
             {
-                byte byteRead = binaryReader.ReadByte();
-                totalBytesRead++;
-
-                if (byteRead == 0)
+                reader.BaseStream.Position = 0xC;
+                int blockOffset = reader.ReadInt32();
+                writer.BaseStream.Position = blockOffset;
+                for (int i = 0; i < files.Length; i++)
                 {
-                    nullBytesCount++;
-                    if (nullBytesCount == 12)
-                    {
-                        break; // Найдено 12 нулевых байтов подряд, выходим из цикла.
-                    }
+                    byte[] file = File.ReadAllBytes(files[i]);
+                    pointers[i] = (int)reader.BaseStream.Position;
+                    size[i] = file.Length;
+                    writer.Write(file);
                 }
-                else
+                writer.BaseStream.Position = 0xC;
+                for (int i = 0; i < files.Length; i++)
                 {
-                    nullBytesCount = 0;
-                }
-
-                if (binaryReader.BaseStream.Position == binaryReader.BaseStream.Length)
-                {
-                    break; // Достигнут конец файла.
+                    writer.Write(pointers[i]);
+                    writer.Write(size[i]);
+                    writer.BaseStream.Position += 8;
                 }
             }
-
-            return totalBytesRead - nullBytesCount;
         }
-
-
-
-
     }
 }
